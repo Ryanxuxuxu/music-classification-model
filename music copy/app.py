@@ -1,3 +1,4 @@
+import torch
 import streamlit as st
 from music_prediction import music_prediction
 import os
