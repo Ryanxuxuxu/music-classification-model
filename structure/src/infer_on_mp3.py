@@ -1,7 +1,9 @@
 import argparse
 import os
 import json
-from typing import List, Tuple
+import pickle
+import glob
+from typing import List, Tuple, Optional
 
 import numpy as np
 import torch
@@ -123,9 +125,92 @@ def save_segments_txt(segments: List[Tuple[float, str]], mp3_path: str, out_dir:
     return out_path
 
 
+def _merge_checkpoint_chunks(chunk_files: List[str], device: str = None) -> dict:
+    """
+    合并拆分后的checkpoint文件。
+    
+    Args:
+        chunk_files: 分片文件路径列表（已排序）
+        device: 加载设备
+    
+    Returns:
+        合并后的checkpoint字典
+    """
+    print(f"检测到拆分模型，正在合并 {len(chunk_files)} 个分片文件...")
+    
+    # 读取所有分片
+    chunks_data = []
+    for chunk_file in chunk_files:
+        with open(chunk_file, 'rb') as f:
+            chunk_data = pickle.load(f)
+            chunks_data.append(chunk_data)
+    
+    # 验证分片完整性
+    total_chunks = chunks_data[0]['total_chunks']
+    total_size = chunks_data[0]['total_size']
+    
+    if len(chunks_data) != total_chunks:
+        raise ValueError(f"分片数量不匹配: 期望 {total_chunks}, 实际 {len(chunks_data)}")
+    
+    # 合并所有分片数据
+    checkpoint_bytes = b''.join([chunk['data'] for chunk in chunks_data])
+    
+    if len(checkpoint_bytes) != total_size:
+        raise ValueError(f"合并后大小不匹配: 期望 {total_size}, 实际 {len(checkpoint_bytes)}")
+    
+    # 反序列化checkpoint
+    checkpoint = pickle.loads(checkpoint_bytes)
+    
+    # 如果指定了device，将tensor移到对应设备
+    if device is not None and 'model_state_dict' in checkpoint:
+        checkpoint['model_state_dict'] = {
+            k: v.to(device) if isinstance(v, torch.Tensor) else v
+            for k, v in checkpoint['model_state_dict'].items()
+        }
+    
+    print("合并完成！")
+    return checkpoint
+
+
 def load_checkpoint_model(checkpoint_path: str, device: str = None):
+    """
+    加载checkpoint模型，自动检测并支持拆分后的模型文件。
+    
+    如果checkpoint_path指向的文件不存在，会自动查找对应的分片文件（.part*.pth）。
+    """
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    checkpoint = torch.load(checkpoint_path, map_location=device)
+    
+    # 检查是否是拆分后的模型文件
+    if os.path.exists(checkpoint_path):
+        # 尝试作为普通checkpoint加载
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location=device)
+        except Exception:
+            # 如果加载失败，可能是分片文件，尝试查找其他分片
+            checkpoint = None
+    else:
+        checkpoint = None
+    
+    # 如果普通加载失败或文件不存在，尝试作为分片文件处理
+    if checkpoint is None:
+        # 检查是否存在分片文件
+        base_dir = os.path.dirname(checkpoint_path) if os.path.dirname(checkpoint_path) else '.'
+        base_name = os.path.splitext(os.path.basename(checkpoint_path))[0]
+        
+        # 查找所有匹配的分片文件
+        pattern = os.path.join(base_dir, f"{base_name}.part*.pth")
+        chunk_files = sorted(glob.glob(pattern))
+        
+        if chunk_files:
+            # 找到分片文件，合并加载
+            checkpoint = _merge_checkpoint_chunks(chunk_files, device)
+        else:
+            # 如果既不是普通文件也不是分片文件，抛出错误
+            raise FileNotFoundError(
+                f"Checkpoint文件不存在: {checkpoint_path}\n"
+                f"也未找到分片文件: {pattern}"
+            )
+    
     input_shape = tuple(checkpoint.get('input_shape')) if isinstance(checkpoint.get('input_shape'), (list, tuple)) else checkpoint.get('input_shape')
     num_classes = int(checkpoint.get('num_classes'))
     label_mapping = checkpoint.get('label_mapping')

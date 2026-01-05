@@ -1,0 +1,12 @@
+{
+  "original_file": "best_model.pth",
+  "total_chunks": 5,
+  "total_size": 64088917,
+  "chunk_files": [
+    "best_model.part001.pth",
+    "best_model.part002.pth",
+    "best_model.part003.pth",
+    "best_model.part004.pth",
+    "best_model.part005.pth"
+  ]
+}
