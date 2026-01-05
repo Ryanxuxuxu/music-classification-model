@@ -14,7 +14,7 @@ st.markdown("Use the prompt generated below to create your own music with the sa
 st.markdown("&nbsp;")
 
 # External website link
-st.markdown("🔗 Visit AI Music Generation Platform: [Suno—AI for Music Creators] https://www.suno.com)")
+st.markdown("🔗 Visit AI Music Generation Platform: [Suno—AI for Music Creators] https://www.suno.com")
 st.markdown("🔗 Visit AI Music Generation Platform: [Aiva—AI for Music Creators] https://www.aiva.ai")
 st.markdown("🔗 Visit AI Music Generation Platform: [Soundraw—AI for Music Creators] https://soundraw.io")
 
