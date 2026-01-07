@@ -93,17 +93,17 @@ st.markdown("Select one of the example music files below to test the model:")
 example_files = [
     {
         "name": "Example Music 1",
-        "path": "./example music/example 1.wav",
+        "path": "./example music 1/example1.wav",
         "description": "First example music file for testing"
     },
     {
         "name": "Example Music 2", 
-        "path": "./example music/example 2.wav",
+        "path": "./example music 1/example2.wav",
         "description": "Second example music file for testing"
     },
     {
         "name": "Example Music 3",
-        "path": "./example music/example 3.wav",
+        "path": "./example music 1/example3.wav",
         "description": "Third example music file for testing"
     }
 ]
